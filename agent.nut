@@ -1,19 +1,20 @@
 // Agent code for PillBox
 
 const TIME_OFFSET = -5;
+// Prescription objects
 local prescriptionTop;
 local prescriptionBottom;
-local currentTime
 
+// Initialization, run once at start
 function init()
 {
     device.on("box lid event", onBoxLidEvent);
     http.onrequest(requestHandler);
 }
-
+// Loop, run once a second
 function loop()
 {
-    currentTime = date();
+    local currentTime = date();
     currentTime.hour = (currentTime.hour + TIME_OFFSET + 24) % 24;
     //server.log(currentTime.hour);
     /*if (prescriptionTop != null)
@@ -21,6 +22,7 @@ function loop()
         server.log(prescriptionTop.getNextTime().hour);
         server.log(prescriptionTop.getNextTime().min);
     }*/
+    // Check if it is time to alert for either prescription
     if (prescriptionTop != null && currentTime.hour == prescriptionTop.getNextTime().hour 
         && currentTime.min == prescriptionTop.getNextTime().min)
     {
@@ -39,6 +41,8 @@ function loop()
 }
 
 // Event Handlers
+
+// Called when box lid state changes, boolean isOpen corresponds to lid state
 function onBoxLidEvent(isOpen)
 {
     if (isOpen)
@@ -50,7 +54,7 @@ function onBoxLidEvent(isOpen)
         server.log("Box has been closed");
     }
 }
-// Converts a String in "HH:MM" format to at time table in date() format
+// Converts a String in "HH:MM" format to at table in date() format
 function stringToTime(input)
 {
     local timeTable = {};
@@ -76,10 +80,11 @@ function requestHandler(request, response)
         else
         {
             // Set prescriptions
-            if ("topPrescription" in request.query)
+            if ("topPrescription" in request.query && request.query.topPrescription != "")
             {
                 if ("topTime" in request.query)
                 {
+                    // List of times
                     server.log("Setting prescription top to a List prescription");
                     responseText += ("topTime=" + request.query.topTime + "\n");
                     local timeStringList = split(request.query.topTime, ",");
@@ -100,20 +105,21 @@ function requestHandler(request, response)
                 }
                 else if("topStart" in request.query && "topFreqm" in request.query && "topFreqh" in request.query)
                 {
+                    // Start time + frequency
                     server.log("Setting prescription top to a Freq prescription");
                     responseText += ("topStart=" + request.query.topStart + "\n");
                     responseText += ("topFreqm=" + request.query.topFreqm + "\n");
                     responseText += ("topFreqh=" + request.query.topFreqh + "\n");
                     prescriptionTop = PrescriptionFreq(stringToTime(request.query.topStart), 
-                        request.query.topFreqh.tointeger(),
-                        request.query.topFreqm.tointeger());
+                        (request.query.topFreqh !="") ? request.query.topFreqh.tointeger() : 0,
+                        (request.query.topFreqm !="") ? request.query.topFreqm.tointeger() : 0);
                 }
                 else
                 {
                     server.log("Invalid Top Prescription");
                 }
             }
-            if ("bottomPrescription" in request.query)
+            if ("bottomPrescription" in request.query && request.query.bottomPrescription != "")
             {
                 if ("bottomTime" in request.query)
                 {
@@ -142,8 +148,8 @@ function requestHandler(request, response)
                     responseText += ("bottomFreqm=" + request.query.bottomFreqm + "\n");
                     responseText += ("bottomFreqh=" + request.query.bottomFreqh + "\n");
                     prescriptionBottom = PrescriptionFreq(stringToTime(request.query.bottomStart), 
-                        request.query.bottomFreqh.tointeger(),
-                        request.query.bottomFreqm.tointeger());
+                        (request.query.bottomFreqh !="") ? request.query.bottomFreqh.tointeger() : 0,
+                        (request.query.bottomFreqm !="") ? request.query.bottomFreqm.tointeger() : 0);
                 }
                 else
                 {
@@ -157,7 +163,7 @@ function requestHandler(request, response)
         response.send(500, ("Agent Error: " + ex)); // Send 500 response if error occured
     }
 }
-// Tell device to start an alert, with boolean for which prescription
+// Tell device to start an alert, boolean isTop indicates which prescription
 function sendAlert(isTop)
 {
     server.log("Sending alert");

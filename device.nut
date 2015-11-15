@@ -76,6 +76,7 @@ function init()
     
     server.log("Init finished, starting loop");
 }
+// Loop, run once a second
 function loop()
 {
     //server.log(lightOutputPin.read())
