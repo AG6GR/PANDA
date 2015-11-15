@@ -3,6 +3,8 @@
 local lightOutputPin;
 local isOpen;
 local alert;
+local topLedState;
+local bottomLedState;
 const LIGHT_THRESH = 50000;
 
 // Turns both LEDs off to save power
@@ -13,16 +15,16 @@ function ledOff()
     hardware.pin7.write(0);
     hardware.pin8.write(0);
 }
-// Turn on the leds, true to set green for respective led, false to set red
-function setLed(top, bottom)
+// Turn on the leds, corresponding to state variables
+function ledOn()
 {
     // Top LED
-    hardware.pin7.write(top? 1 : 0);
-    hardware.pin8.write(top? 0 : 1);
+    hardware.pin7.write(topLedState? 1 : 0);
+    hardware.pin8.write(topLedState? 0 : 1);
     
     // Bottom LED
-    hardware.pin1.write(bottom? 1 : 0);
-    hardware.pin2.write(bottom? 0 : 1);
+    hardware.pin1.write(bottomLedState? 1 : 0);
+    hardware.pin2.write(bottomLedState? 0 : 1);
 }
 // Turns on the beeper
 function startBeep()
@@ -35,15 +37,16 @@ function endBeep()
 {
     hardware.pin9.write(0.0);
 }
-// Handler for Alert message from agent, lightBox is boolean array with states
-//  of top and bottom leds respectively
-function onAlert(lightBox)
+// Handler for Alert message from agent
+function onAlert(isTop)
 {
     alert = true;
-    server.log("Lighting leds");
-    server.log(lightBox[0])
-    server.log(lightBox[1])
-    setLed(lightBox[0], lightBox[1]);
+    server.log("Lighting led");
+    if (isTop)
+        topLedState = true;
+    else
+        bottomLedState = true;
+    ledOn();
     startBeep();
 }
 // Initialization, run once at start
@@ -60,6 +63,8 @@ function init()
     hardware.pin7.configure(DIGITAL_OUT);
     hardware.pin8.configure(DIGITAL_OUT);
     ledOff();
+    topLedState = false;
+    bottomLedState = false;
     
     // Beeper
     hardware.pin9.configure(PWM_OUT, 0.0005, 0.0);
@@ -85,7 +90,13 @@ function loop()
         agent.send("box lid event", isOpenNow)
         if (!isOpenNow)
         {
+            topLedState = false;
+            bottomLedState = false;
             ledOff();
+        }
+        else
+        {
+            ledOn();
         }
     }
     isOpen = isOpenNow;
