@@ -1,86 +1,97 @@
 // Device code for PillBox
 
-//#require "APDS9007.class.nut:1.0.0"
-#require "LPS25H.class.nut:1.0.0"
-#require "Si702x.class.nut:1.0.0"
+local lightOutputPin;
+local isOpen;
+local alert;
+const LIGHT_THRESH = 50000;
 
-local lightSensor
-local pressureSensor
-local tempHumidSensor
-local isOpen
-local isOpenNow
-const LIGHT_THRESH = 75;
-
+// Turns both LEDs off to save power
+function ledOff()
+{
+    hardware.pin1.write(0);
+    hardware.pin2.write(0);
+    hardware.pin7.write(0);
+    hardware.pin8.write(0);
+}
+// Turn on the leds, true to set green for respective led, false to set red
+function setLed(top, bottom)
+{
+    // Top LED
+    hardware.pin7.write(top? 1 : 0);
+    hardware.pin8.write(top? 0 : 1);
+    
+    // Bottom LED
+    hardware.pin1.write(bottom? 1 : 0);
+    hardware.pin2.write(bottom? 0 : 1);
+}
+// Turns on the beeper
+function startBeep()
+{
+    hardware.pin9.write(0.5);
+    //imp.wakeup(1, endBeep)
+}
+// Stops the beeper
+function endBeep()
+{
+    hardware.pin9.write(0.0);
+}
+// Handler for Alert message from agent, lightBox is boolean array with states
+//  of top and bottom leds respectively
+function onAlert(lightBox)
+{
+    alert = true;
+    server.log("Lighting leds");
+    server.log(lightBox[0])
+    server.log(lightBox[1])
+    setLed(lightBox[0], lightBox[1]);
+    startBeep();
+}
+// Initialization, run once at start
 function init()
 {
-    local lightOutputPin = hardware.pin5
+    // Light sensor
+    lightOutputPin = hardware.pin5
     lightOutputPin.configure(ANALOG_IN)
-    local lightEnablePin = hardware.pin7
-    lightEnablePin.configure(DIGITAL_OUT, 1)
-    lightSensor = APDS9007(lightOutputPin, 47000, lightEnablePin)
-    isOpen = lightSensor.read() > LIGHT_THRESH;
+    isOpen = lightOutputPin.read() < LIGHT_THRESH;
     
-    hardware.i2c89.configure(CLOCK_SPEED_400_KHZ)
-    pressureSensor = LPS25H(hardware.i2c89)
+    // LEDs
+    hardware.pin1.configure(DIGITAL_OUT);
+    hardware.pin2.configure(DIGITAL_OUT);
+    hardware.pin7.configure(DIGITAL_OUT);
+    hardware.pin8.configure(DIGITAL_OUT);
+    ledOff();
     
-    tempHumidSensor = Si702x(hardware.i2c89)
+    // Beeper
+    hardware.pin9.configure(PWM_OUT, 0.0005, 0.0);
+    hardware.pin9.write(0.0);
+    
+    // Alert handling
+    alert = false;
+    agent.on("Alert", onAlert);
     
     server.log("Init finished, starting loop");
 }
 function loop()
 {
-    server.log(lightSensor.read())
-    isOpenNow = lightSensor.read() > LIGHT_THRESH;
+    //server.log(lightOutputPin.read())
+    local isOpenNow = lightOutputPin.read() < LIGHT_THRESH;
+    if (isOpenNow && alert)
+    {
+        endBeep();
+        alert = false;
+    }
     if (isOpenNow != isOpen)
     {
         agent.send("box lid event", isOpenNow)
+        if (!isOpenNow)
+        {
+            ledOff();
+        }
     }
     isOpen = isOpenNow;
     imp.wakeup(1, loop);
 }
 
-/* Adapted from https://github.com/electricimp/APDS9007/blob/v1.0/APDS9007.class.nut 
-    modified sample speed */
-class APDS9007 {
-    static WAIT_BEFORE_READ = 0.0;
-    RLOAD = null; // value of load resistor on ALS (device has current output)
-
-    _als_pin            = null;
-    _als_en             = null;
-    _points_per_read    = null;
-
-    // -------------------------------------------------------------------------
-    constructor(als_pin, rload, als_en = null, points_per_read = 10) {
-        _als_pin = als_pin;
-        _als_en = als_en;
-        RLOAD = rload;
-        _points_per_read = points_per_read * 1.0; //force to a float
-    }
-
-    // -------------------------------------------------------------------------
-    // read the ALS and return value in lux
-    function read() {
-        if (_als_en) {
-            _als_en.write(1);
-            imp.sleep(WAIT_BEFORE_READ);
-        }
-        local Vpin = 0;
-        local Vcc = 0;
-        // average several readings for improved precision
-        for (local i = 0; i < _points_per_read; i++) {
-            Vpin += _als_pin.read();
-            Vcc += hardware.voltage();
-        }
-        Vpin = (Vpin * 1.0) / _points_per_read;
-        Vcc = (Vcc * 1.0) / _points_per_read;
-        Vpin = (Vpin / 65535.0) * Vcc;
-        local Iout = (Vpin / RLOAD) * 1000000.0; // current in µA
-        if (_als_en) _als_en.write(0);
-        return (math.pow(10.0,(Iout/10.0)));
-    }
-}
-
-//---Main---
 init();
-// Wait 3 sec to start up
-imp.wakeup(3, loop);
+// Wait 1 sec to start up
+imp.wakeup(1, loop);
