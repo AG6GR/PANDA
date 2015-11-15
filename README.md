@@ -21,3 +21,7 @@ Regardless of how careful doctors and pharmacists are at prescribing medicine, t
 <img src=/doc/Schematic.png width="480">
 
 PANDA is built around the Electric Imp platform. PANDA uses a CdS photocell to detect if the lid is open or not based on the brightness change. This photocell is read using an analog input on the Electric Imp using a 1kΩ resistor on the high side in a voltage divider configuration. There are two red/green LED's (Newark 20K5342) indicating which medicine to take. These LED's are bidirectional, so they emit green light when biased in one direction and red light when biased in the other. The LED's are controlled using two pairs of digital output pins. The final pin is used to drive the piezo speaker (Sparkfun COM-07950) using a fixed frequency PWM signal. PANDA is powered by a 4xAA battery holder hooked into the battery input (P+/-) pads on the Electric Imp.
+
+# Software
+
+PANDA can be configured using a [web interface](http://ag6gr.github.io/PANDA/), created using Bootstrap and Javascript. The web interface communicates with the Electric Imp servers using standard http requests. Timekeeping and alert triggering are managed by polling loops in the server side of the Electric Imp. The device is notified of alerts using the standard message passing functionality built into the Electric Imp platform. Source code is available on [Github](https://github.com/AG6GR/PANDA).
