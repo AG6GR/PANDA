@@ -64,6 +64,7 @@ function requestHandler(request, response)
     server.log("Request received");
     try 
     {
+        local responseText = "OK\n"
         // Demo
         if ("demo" in request.query) 
         {
@@ -80,6 +81,7 @@ function requestHandler(request, response)
                 if ("topTime" in request.query)
                 {
                     server.log("Setting prescription top to a List prescription");
+                    responseText += ("topTime=" + request.query.topTime + "\n");
                     local timeStringList = split(request.query.topTime, ",");
                     local timeIntList = array();
                     foreach(input in timeStringList)
@@ -96,14 +98,15 @@ function requestHandler(request, response)
                         prescriptionTop = PrescriptionList(timeIntList);
                     }
                 }
-                else if("topStart" in request.query && "topFreq" in request.query)
+                else if("topStart" in request.query && "topFreqm" in request.query && "topFreqh" in request.query)
                 {
                     server.log("Setting prescription top to a Freq prescription");
-                    // topFreq is decimal hours
-                    local freqFloat = request.query.topFreq.tofloat();
-                    
-                    prescriptionTop = PrescriptionFreq(stringToTime(request.query.topStart), freqFloat.tointeger(),
-                        ((freqFloat - freqFloat.tointeger()) * 60).tointeger())
+                    responseText += ("topStart=" + request.query.topStart + "\n");
+                    responseText += ("topFreqm=" + request.query.topFreqm + "\n");
+                    responseText += ("topFreqh=" + request.query.topFreqh + "\n");
+                    prescriptionTop = PrescriptionFreq(stringToTime(request.query.topStart), 
+                        request.query.topFreqh.tointeger(),
+                        request.query.topFreqm.tointeger());
                 }
                 else
                 {
@@ -115,6 +118,7 @@ function requestHandler(request, response)
                 if ("bottomTime" in request.query)
                 {
                     server.log("Setting prescription bottom to a List prescription");
+                    responseText += ("bottomTime=" + request.query.bottomTime + "\n");
                     local timeStringList = split(request.query.bottomTime, ",");
                     local timeIntList = array();
                     foreach(input in timeStringList)
@@ -131,14 +135,15 @@ function requestHandler(request, response)
                         prescriptionBottom = PrescriptionList(timeIntList);
                     }
                 }
-                else if("bottomStart" in request.query && "bottomFreq" in request.query)
+                else if("bottomStart" in request.query && "bottomFreqm" in request.query && "bottomFreqh" in request.query)
                 {
                     server.log("Setting prescription bottom to a Freq prescription");
-                    // topFreq is decimal hours
-                    local freqFloat = request.query.topFreq.tofloat();
-                    
-                    prescriptionBottom = PrescriptionFreq(stringToTime(request.query.bottomStart), freqFloat.tointeger(),
-                        ((freqFloat - freqFloat.tointeger()) * 60).tointeger())
+                    responseText += ("bottomStart=" + request.query.bottomStart + "\n");
+                    responseText += ("bottomFreqm=" + request.query.bottomFreqm + "\n");
+                    responseText += ("bottomFreqh=" + request.query.bottomFreqh + "\n");
+                    prescriptionBottom = PrescriptionFreq(stringToTime(request.query.bottomStart), 
+                        request.query.bottomFreqh.tointeger(),
+                        request.query.bottomFreqm.tointeger());
                 }
                 else
                 {
@@ -146,7 +151,8 @@ function requestHandler(request, response)
                 }
             }
         }
-        response.send(200, "OK"); // "200: OK" is standard return message
+        server.log("Response text: " + responseText);
+        response.send(200, responseText);
     } catch (ex) {
         response.send(500, ("Agent Error: " + ex)); // Send 500 response if error occured
     }
@@ -177,7 +183,7 @@ class PrescriptionList
         else
         {
             // Iterate to find the first time that is after the current time
-            for (_currentIndex = 0; compareDate(currentDate, timeList[_currentIndex]); _currentIndex++);
+            for (_currentIndex = 0; compareDate(timeList[_currentIndex], currentDate); _currentIndex++);
         }
     }
     // Tests if a time1 is before time2
